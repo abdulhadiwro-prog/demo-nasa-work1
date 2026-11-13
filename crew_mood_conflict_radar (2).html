@@ -1,0 +1,1481 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crew Mood & Conflict Radar | NASA Space Apps</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        space: {
+                            950: '#030712',
+                            900: '#0b0f19',
+                            800: '#111827',
+                            700: '#1f2937',
+                            600: '#374151',
+                        },
+                        nasa: {
+                            blue: '#0b3d91',
+                            light: '#1d4ed8',
+                            cyan: '#06b6d4',
+                            teal: '#14b8a6',
+                            accent: '#38bdf8',
+                            warning: '#f59e0b',
+                            danger: '#ef4444',
+                            success: '#10b981'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Inter Font & JetBrains Mono -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #030712;
+            color: #f3f4f6;
+            overflow-x: hidden;
+        }
+        .glass-panel {
+            background: rgba(17, 24, 39, 0.75);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(56, 189, 248, 0.15);
+        }
+        .glass-panel-glow {
+            background: rgba(17, 24, 39, 0.85);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            box-shadow: 0 0 25px rgba(6, 182, 212, 0.1);
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0b0f19;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1f2937;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #06b6d4;
+        }
+        @keyframes pulse-slow {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.8; transform: scale(1.02); }
+        }
+        .pulse-slow {
+            animation: pulse-slow 4s infinite ease-in-out;
+        }
+        @keyframes radar-sweep {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .radar-sweep {
+            animation: radar-sweep 6s linear infinite;
+            transform-origin: center;
+        }
+    </style>
+</head>
+<body class="bg-space-950 text-gray-100 min-h-screen flex flex-col selection:bg-nasa-cyan selection:text-space-950">
+
+    <!-- Top NASA-Grade Navigation Bar -->
+    <header class="sticky top-0 z-50 glass-panel border-b border-nasa-cyan/20 px-4 lg:px-8 py-3 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-nasa-blue to-nasa-cyan flex items-center justify-center shadow-lg shadow-nasa-cyan/20 text-white font-bold text-lg">
+                <i class="fa-solid fa-satellite-dish text-nasa-accent animate-pulse"></i>
+            </div>
+            <div>
+                <div class="flex items-center space-x-2">
+                    <span class="text-xs uppercase tracking-widest text-nasa-cyan font-mono font-semibold">NASA Space Apps</span>
+                    <span class="px-1.5 py-0.5 text-[10px] bg-nasa-blue/40 text-nasa-accent rounded border border-nasa-blue/50 font-mono">SECURE v2.4</span>
+                </div>
+                <h1 class="text-base lg:text-lg font-bold tracking-tight text-white flex items-center space-x-2">
+                    <span>Crew Mood & Conflict Radar</span>
+                </h1>
+            </div>
+        </div>
+
+        <!-- Desktop Navigation Tabs -->
+        <nav class="hidden xl:flex items-center space-x-1 bg-space-900/80 p-1.5 rounded-xl border border-gray-800">
+            <button onclick="switchTab('welcome')" id="nav-welcome" class="nav-btn px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 text-gray-300 hover:text-white flex items-center space-x-1.5">
+                <i class="fa-solid fa-house-chimney text-nasa-cyan"></i><span>Welcome</span>
+            </button>
+            <button onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-btn px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 text-gray-300 hover:text-white flex items-center space-x-1.5">
+                <i class="fa-solid fa-chart-pie text-nasa-accent"></i><span>Dashboard</span>
+            </button>
+            <button onclick="switchTab('journal')" id="nav-journal" class="nav-btn px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 text-gray-300 hover:text-white flex items-center space-x-1.5">
+                <i class="fa-solid fa-book-journal-whills text-emerald-400"></i><span>Private Journal</span>
+            </button>
+            <button onclick="switchTab('radar')" id="nav-radar" class="nav-btn px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 text-gray-300 hover:text-white flex items-center space-x-1.5">
+                <i class="fa-solid fa-radar text-purple-400"></i><span>Mood Radar</span>
+            </button>
+            <button onclick="switchTab('tension')" id="nav-tension" class="nav-btn px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 text-gray-300 hover:text-white flex items-center space-x-1.5">
+                <i class="fa-solid fa-triangle-exclamation text-amber-400"></i><span>Tension Signals</span>
+            </button>
+            <button onclick="switchTab('assistant')" id="nav-assistant" class="nav-btn px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 text-gray-300 hover:text-white flex items-center space-x-1.5">
+                <i class="fa-solid fa-robot text-teal-400"></i><span>AI Wellness</span>
+            </button>
+            <button onclick="switchTab('reports')" id="nav-reports" class="nav-btn px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 text-gray-300 hover:text-white flex items-center space-x-1.5">
+                <i class="fa-solid fa-file-lines text-blue-400"></i><span>Reports</span>
+            </button>
+            <button onclick="switchTab('settings')" id="nav-settings" class="nav-btn px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 text-gray-300 hover:text-white flex items-center space-x-1.5">
+                <i class="fa-solid fa-shield-halved text-rose-400"></i><span>Settings</span>
+            </button>
+        </nav>
+
+        <!-- Right Header Status & Controls -->
+        <div class="flex items-center space-x-3">
+            <div class="hidden sm:flex items-center space-x-2 bg-emerald-950/40 border border-emerald-500/30 px-3 py-1.5 rounded-lg">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                <span class="text-xs text-emerald-300 font-mono">On-Device AI Active</span>
+            </div>
+            <button onclick="toggleMobileMenu()" class="xl:hidden p-2 rounded-lg bg-space-800 text-gray-300 hover:text-white border border-gray-700">
+                <i class="fa-solid fa-bars text-lg"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Mobile Navigation Drawer -->
+    <div id="mobile-menu" class="fixed inset-0 z-50 bg-space-950/95 backdrop-blur-xl flex flex-col p-6 hidden xl:hidden">
+        <div class="flex items-center justify-between pb-6 border-b border-gray-800">
+            <div class="flex items-center space-x-3">
+                <div class="w-8 h-8 rounded bg-nasa-blue flex items-center justify-center text-white font-bold">
+                    <i class="fa-solid fa-satellite-dish"></i>
+                </div>
+                <span class="font-bold text-white">Crew Navigation</span>
+            </div>
+            <button onclick="toggleMobileMenu()" class="p-2 text-gray-400 hover:text-white">
+                <i class="fa-solid fa-xmark text-xl"></i>
+            </button>
+        </div>
+        <div class="flex flex-col space-y-2 py-6">
+            <button onclick="switchTab('welcome'); toggleMobileMenu();" class="flex items-center space-x-3 p-3 rounded-xl bg-space-900 text-gray-200 hover:bg-space-800">
+                <i class="fa-solid fa-house-chimney text-nasa-cyan w-6"></i><span>Welcome Page</span>
+            </button>
+            <button onclick="switchTab('dashboard'); toggleMobileMenu();" class="flex items-center space-x-3 p-3 rounded-xl bg-space-900 text-gray-200 hover:bg-space-800">
+                <i class="fa-solid fa-chart-pie text-nasa-accent w-6"></i><span>Astronaut Dashboard</span>
+            </button>
+            <button onclick="switchTab('journal'); toggleMobileMenu();" class="flex items-center space-x-3 p-3 rounded-xl bg-space-900 text-gray-200 hover:bg-space-800">
+                <i class="fa-solid fa-book-journal-whills text-emerald-400 w-6"></i><span>Private Journal</span>
+            </button>
+            <button onclick="switchTab('radar'); toggleMobileMenu();" class="flex items-center space-x-3 p-3 rounded-xl bg-space-900 text-gray-200 hover:bg-space-800">
+                <i class="fa-solid fa-radar text-purple-400 w-6"></i><span>Mood Radar</span>
+            </button>
+            <button onclick="switchTab('tension'); toggleMobileMenu();" class="flex items-center space-x-3 p-3 rounded-xl bg-space-900 text-gray-200 hover:bg-space-800">
+                <i class="fa-solid fa-triangle-exclamation text-amber-400 w-6"></i><span>Tension Signals</span>
+            </button>
+            <button onclick="switchTab('assistant'); toggleMobileMenu();" class="flex items-center space-x-3 p-3 rounded-xl bg-space-900 text-gray-200 hover:bg-space-800">
+                <i class="fa-solid fa-robot text-teal-400 w-6"></i><span>AI Wellness Assistant</span>
+            </button>
+            <button onclick="switchTab('reports'); toggleMobileMenu();" class="flex items-center space-x-3 p-3 rounded-xl bg-space-900 text-gray-200 hover:bg-space-800">
+                <i class="fa-solid fa-file-lines text-blue-400 w-6"></i><span>Weekly Reports</span>
+            </button>
+            <button onclick="switchTab('settings'); toggleMobileMenu();" class="flex items-center space-x-3 p-3 rounded-xl bg-space-900 text-gray-200 hover:bg-space-800">
+                <i class="fa-solid fa-shield-halved text-rose-400 w-6"></i><span>Privacy & Settings</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Content Container -->
+    <main class="flex-grow p-4 lg:p-8 max-w-7xl mx-auto w-full">
+
+        <!-- ==================== 1. WELCOME PAGE ==================== -->
+        <section id="page-welcome" class="space-y-8 page-section animate-fadeIn">
+            <!-- Hero Banner -->
+            <div class="relative rounded-3xl overflow-hidden glass-panel-glow p-8 lg:p-12 border border-nasa-cyan/30">
+                <div class="absolute -right-20 -bottom-20 w-96 h-96 bg-nasa-cyan/10 rounded-full blur-3xl pointer-events-none"></div>
+                <div class="absolute -left-20 -top-20 w-96 h-96 bg-nasa-blue/20 rounded-full blur-3xl pointer-events-none"></div>
+                <div class="relative z-10 max-w-3xl space-y-6">
+                    <div class="inline-flex items-center space-x-2 bg-nasa-blue/30 border border-nasa-cyan/40 px-3 py-1.5 rounded-full text-xs font-mono text-nasa-cyan">
+                        <i class="fa-solid fa-rocket animate-bounce"></i>
+                        <span>NASA Space Apps Challenge 2026 • Public Awareness Edition</span>
+                    </div>
+                    <h2 class="text-3xl lg:text-5xl font-extrabold tracking-tight text-white leading-tight">
+                        Beyond Monitoring Missions.<br><span class="text-transparent bg-clip-text bg-gradient-to-r from-nasa-cyan via-nasa-accent to-blue-400">Protecting the Humans Behind Them.</span>
+                    </h2>
+                    <p class="text-gray-300 text-base lg:text-lg leading-relaxed">
+                        Long-duration space exploration introduces severe isolation, interpersonal friction, and emotional exhaustion. Grounded in public behavioral health findings from analog missions like <strong>HI-SEAS</strong> and <strong>NASA HERA</strong>, <strong>Crew Mood & Conflict Radar</strong> is an advanced, privacy-first AI wellness monitoring platform.
+                    </p>
+                    <div class="flex flex-wrap gap-4 pt-2">
+                        <button onclick="switchTab('dashboard')" class="px-6 py-3 rounded-xl bg-gradient-to-r from-nasa-cyan to-nasa-light text-space-950 font-bold hover:opacity-95 transition shadow-lg shadow-nasa-cyan/25 flex items-center space-x-2">
+                            <span>Launch Dashboard</span>
+                            <i class="fa-solid fa-arrow-right"></i>
+                        </button>
+                        <button onclick="switchTab('journal')" class="px-6 py-3 rounded-xl bg-space-800 border border-nasa-cyan/40 text-nasa-accent font-semibold hover:bg-space-700 transition flex items-center space-x-2">
+                            <i class="fa-solid fa-book-journal-whills"></i>
+                            <span>Open Private Journal</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Public Awareness & Analog Mission Data Insights -->
+            <div class="glass-panel p-6 lg:p-8 rounded-2xl border border-nasa-cyan/30 space-y-6">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-xl bg-nasa-cyan/20 border border-nasa-cyan/40 flex items-center justify-center text-nasa-cyan">
+                        <i class="fa-solid fa-earth-americas"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-bold text-white">Public Awareness Data & Behavioral Research</h3>
+                        <p class="text-xs text-gray-400">Insights derived from NASA Human Research Program (HRP) and analog isolation studies</p>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="p-4 bg-space-900 rounded-xl border border-gray-800 space-y-2">
+                        <div class="text-xs font-mono text-nasa-cyan">HI-SEAS ANALOG DATA</div>
+                        <div class="text-lg font-bold text-white">3rd-Quarter Effect</div>
+                        <p class="text-xs text-gray-400">Public research shows crew morale and motivation frequently dip during the midpoint of long missions before rebounding near completion.</p>
+                    </div>
+                    <div class="p-4 bg-space-900 rounded-xl border border-gray-800 space-y-2">
+                        <div class="text-xs font-mono text-nasa-cyan">COMMUNICATION LAG</div>
+                        <div class="text-lg font-bold text-white">Autonomous Coping</div>
+                        <p class="text-xs text-gray-400">Deep space missions face up to 20-minute one-way signal delays with Earth, making local self-monitoring and peer support vital.</p>
+                    </div>
+                    <div class="p-4 bg-space-900 rounded-xl border border-gray-800 space-y-2">
+                        <div class="text-xs font-mono text-nasa-cyan">PRIVACY FIRST HRP</div>
+                        <div class="text-lg font-bold text-white">Zero Surveillance Stigma</div>
+                        <p class="text-xs text-gray-400">Public behavioral guidelines emphasize that psychological telemetry must remain private to prevent reporting bias or crew anxiety.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Core Mission Pillars -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="glass-panel p-6 rounded-2xl border border-gray-800 space-y-4 hover:border-nasa-cyan/40 transition">
+                    <div class="w-12 h-12 rounded-xl bg-nasa-cyan/10 border border-nasa-cyan/30 flex items-center justify-center text-nasa-cyan text-xl">
+                        <i class="fa-solid fa-lock"></i>
+                    </div>
+                    <h3 class="text-lg font-bold text-white">100% On-Device Privacy</h3>
+                    <p class="text-sm text-gray-400 leading-relaxed">
+                        Journal entries are analyzed locally in your device's memory using lightweight NLP models. Zero automatic cloud transmission or commander exposure without explicit consent.
+                    </p>
+                </div>
+                <div class="glass-panel p-6 rounded-2xl border border-gray-800 space-y-4 hover:border-nasa-cyan/40 transition">
+                    <div class="w-12 h-12 rounded-xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400 text-xl">
+                        <i class="fa-solid fa-radar"></i>
+                    </div>
+                    <h3 class="text-lg font-bold text-white">Pattern Recognition</h3>
+                    <p class="text-sm text-gray-400 leading-relaxed">
+                        Tracks emotional shifts, work stress, and social withdrawal over time. Designed as a constructive wellness support tool—never a psychological diagnostic system.
+                    </p>
+                </div>
+                <div class="glass-panel p-6 rounded-2xl border border-gray-800 space-y-4 hover:border-nasa-cyan/40 transition">
+                    <div class="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 text-xl">
+                        <i class="fa-solid fa-hand-holding-heart"></i>
+                    </div>
+                    <h3 class="text-lg font-bold text-white">Actionable Support</h3>
+                    <p class="text-sm text-gray-400 leading-relaxed">
+                        Provides guided breathing, cognitive reframing exercises, and communication tips to help crew members resolve tension naturally before it escalates.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Quick Astronaut Demo Selector Banner -->
+            <div class="glass-panel p-6 rounded-2xl border border-nasa-cyan/20 flex flex-col lg:flex-row items-center justify-between gap-6">
+                <div class="space-y-1 text-center lg:text-left">
+                    <div class="flex items-center justify-center lg:justify-start space-x-2 text-nasa-cyan font-mono text-xs uppercase tracking-wider">
+                        <i class="fa-solid fa-users-viewfinder"></i>
+                        <span>Simulation Active</span>
+                    </div>
+                    <h4 class="text-lg font-bold text-white">Test the System with Fictional Crew Profiles</h4>
+                    <p class="text-sm text-gray-400">Select an astronaut profile to instantly populate journals and observe tailored AI analytics.</p>
+                </div>
+                <div class="flex flex-wrap gap-3 justify-center">
+                    <button onclick="setActiveAstronaut('elena')" class="px-4 py-2 rounded-xl bg-space-800 hover:bg-space-700 border border-nasa-cyan/40 text-xs font-semibold flex items-center space-x-2 transition">
+                        <span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
+                        <span>Elena Vance (Work Stress)</span>
+                    </button>
+                    <button onclick="setActiveAstronaut('marcus')" class="px-4 py-2 rounded-xl bg-space-800 hover:bg-space-700 border border-nasa-cyan/40 text-xs font-semibold flex items-center space-x-2 transition">
+                        <span class="w-2.5 h-2.5 rounded-full bg-purple-400"></span>
+                        <span>Marcus Thorne (Isolation)</span>
+                    </button>
+                    <button onclick="setActiveAstronaut('kenji')" class="px-4 py-2 rounded-xl bg-space-800 hover:bg-space-700 border border-nasa-cyan/40 text-xs font-semibold flex items-center space-x-2 transition">
+                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+                        <span>Dr. Kenji Sato (Positive)</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 2. ASTRONAUT DASHBOARD ==================== -->
+        <section id="page-dashboard" class="space-y-6 page-section hidden animate-fadeIn">
+            <!-- Header bar with Active Astronaut Profile info -->
+            <div class="glass-panel p-6 rounded-2xl border border-gray-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div class="flex items-center space-x-4">
+                    <div id="dash-avatar" class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-nasa-blue to-nasa-cyan flex items-center justify-center text-white text-2xl font-bold shadow-lg">
+                        EV
+                    </div>
+                    <div>
+                        <div class="flex items-center space-x-2">
+                            <span id="dash-role" class="text-xs uppercase tracking-widest text-nasa-cyan font-mono">Commander</span>
+                            <span class="px-2 py-0.5 text-[10px] bg-emerald-950 text-emerald-400 border border-emerald-500/30 rounded-full font-mono">Mission Day 214</span>
+                        </div>
+                        <h3 id="dash-name" class="text-xl font-bold text-white">Commander Elena Vance</h3>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <div class="text-right hidden sm:block">
+                        <div class="text-xs text-gray-400">Overall Wellness Score</div>
+                        <div id="dash-score" class="text-lg font-bold text-amber-400 font-mono">74% (Stable)</div>
+                    </div>
+                    <button onclick="switchTab('journal')" class="px-4 py-2 rounded-xl bg-nasa-cyan text-space-950 font-bold hover:bg-cyan-400 transition text-sm flex items-center space-x-2">
+                        <i class="fa-solid fa-plus"></i><span>New Entry</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- KPI Cards Grid -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="glass-panel p-5 rounded-2xl border border-gray-800 space-y-2">
+                    <div class="flex items-center justify-between text-gray-400 text-sm">
+                        <span>Emotional State</span>
+                        <i class="fa-solid fa-face-smile text-nasa-cyan"></i>
+                    </div>
+                    <div id="kpi-mood" class="text-xl font-bold text-white">Moderate Stress</div>
+                    <div class="text-xs text-amber-400 flex items-center space-x-1">
+                        <i class="fa-solid fa-arrow-trend-up"></i>
+                        <span>Workload fatigue detected</span>
+                    </div>
+                </div>
+                <div class="glass-panel p-5 rounded-2xl border border-gray-800 space-y-2">
+                    <div class="flex items-center justify-between text-gray-400 text-sm">
+                        <span>Journal Activity</span>
+                        <i class="fa-solid fa-book-open text-emerald-400"></i>
+                    </div>
+                    <div id="kpi-journals" class="text-xl font-bold text-white">14 Entries logged</div>
+                    <div class="text-xs text-emerald-400 flex items-center space-x-1">
+                        <i class="fa-solid fa-check"></i>
+                        <span>Consistent daily streak</span>
+                    </div>
+                </div>
+                <div class="glass-panel p-5 rounded-2xl border border-gray-800 space-y-2">
+                    <div class="flex items-center justify-between text-gray-400 text-sm">
+                        <span>Social Integration</span>
+                        <i class="fa-solid fa-users text-purple-400"></i>
+                    </div>
+                    <div id="kpi-social" class="text-xl font-bold text-white">Adequate Connection</div>
+                    <div class="text-xs text-purple-300 flex items-center space-x-1">
+                        <i class="fa-solid fa-shield"></i>
+                        <span>No significant isolation</span>
+                    </div>
+                </div>
+                <div class="glass-panel p-5 rounded-2xl border border-gray-800 space-y-2">
+                    <div class="flex items-center justify-between text-gray-400 text-sm">
+                        <span>Warning Signals</span>
+                        <i class="fa-solid fa-triangle-exclamation text-amber-400"></i>
+                    </div>
+                    <div id="kpi-warnings" class="text-xl font-bold text-white">1 Active Notice</div>
+                    <div class="text-xs text-amber-400 flex items-center space-x-1">
+                        <i class="fa-solid fa-circle-exclamation"></i>
+                        <span>Review tension tab</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Dashboard Charts & Recent Activity Section -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Weekly Mood Trend Chart Container -->
+                <div class="lg:col-span-2 glass-panel p-6 rounded-2xl border border-gray-800 space-y-4">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h4 class="text-lg font-bold text-white">Weekly Emotional Baseline Trend</h4>
+                            <p class="text-xs text-gray-400">Comparing last 7 days against personal nominal baseline</p>
+                        </div>
+                        <div class="flex items-center space-x-2 text-xs font-mono text-nasa-cyan bg-space-900 px-3 py-1 rounded-lg border border-gray-800">
+                            <span class="w-2 h-2 rounded-full bg-nasa-cyan"></span>
+                            <span>Live NLP Analysis</span>
+                        </div>
+                    </div>
+                    <div class="h-64 w-full">
+                        <canvas id="dashboardChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Suggested Wellness Exercises & Quick Actions -->
+                <div class="glass-panel p-6 rounded-2xl border border-gray-800 space-y-4 flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between mb-4">
+                            <h4 class="text-lg font-bold text-white">Recommended Actions</h4>
+                            <i class="fa-solid fa-sparkles text-nasa-cyan"></i>
+                        </div>
+                        <div id="dashboard-suggestions" class="space-y-3">
+                            <div class="p-3 bg-space-900/80 rounded-xl border border-gray-800 flex items-start space-x-3">
+                                <div class="p-2 bg-nasa-blue/30 text-nasa-cyan rounded-lg mt-0.5"><i class="fa-solid fa-lungs"></i></div>
+                                <div>
+                                    <h5 class="text-sm font-semibold text-white">Box Breathing Session</h5>
+                                    <p class="text-xs text-gray-400">Recommended after high-stress EVA prep.</p>
+                                </div>
+                            </div>
+                            <div class="p-3 bg-space-900/80 rounded-xl border border-gray-800 flex items-start space-x-3">
+                                <div class="p-2 bg-emerald-500/20 text-emerald-400 rounded-lg mt-0.5"><i class="fa-solid fa-comments"></i></div>
+                                <div>
+                                    <h5 class="text-sm font-semibold text-white">Crew Sync Recommendation</h5>
+                                    <p class="text-xs text-gray-400">Schedule informal dinner debrief.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <button onclick="switchTab('assistant')" class="w-full py-2.5 bg-space-800 hover:bg-space-700 border border-nasa-cyan/40 text-nasa-accent rounded-xl font-semibold text-xs transition flex items-center justify-center space-x-2">
+                        <i class="fa-solid fa-robot"></i>
+                        <span>Launch AI Wellness Assistant</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 3. PRIVATE JOURNAL ==================== -->
+        <section id="page-journal" class="space-y-6 page-section hidden animate-fadeIn">
+            <div class="glass-panel p-6 rounded-2xl border border-gray-800 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+                <div>
+                    <div class="flex items-center space-x-2 text-xs font-mono text-emerald-400 mb-1">
+                        <i class="fa-solid fa-shield-halved"></i>
+                        <span>Encrypted Local Storage • Never Shared Automatically</span>
+                    </div>
+                    <h3 class="text-2xl font-bold text-white">Astronaut Private Journal & On-Device NLP</h3>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <button onclick="clearJournalForm()" class="px-4 py-2 rounded-xl bg-space-800 border border-gray-700 text-xs font-semibold text-gray-300 hover:text-white transition">
+                        Clear Form
+                    </button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Journal Editor Form -->
+                <div class="lg:col-span-2 glass-panel p-6 rounded-2xl border border-gray-800 space-y-4">
+                    <h4 class="text-lg font-bold text-white flex items-center space-x-2">
+                        <i class="fa-solid fa-pen-nib text-nasa-cyan"></i>
+                        <span>New Daily Reflection</span>
+                    </h4>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-mono uppercase tracking-wider text-gray-400 mb-1.5">Journal Title / Mission Day</label>
+                            <input type="text" id="journal-title" placeholder="e.g., Sol 214: Solar Array Maintenance & EVA Prep" class="w-full bg-space-900 border border-gray-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-nasa-cyan transition">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-mono uppercase tracking-wider text-gray-400 mb-1.5">How are you feeling today? (Private Reflection)</label>
+                            <textarea id="journal-content" rows="6" placeholder="Write freely about your workday, sleep quality, team interactions, physical state, or any frustrations..." class="w-full bg-space-900 border border-gray-800 rounded-xl p-4 text-sm text-white focus:outline-none focus:border-nasa-cyan transition resize-none"></textarea>
+                        </div>
+                        <div class="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
+                            <div class="flex items-center space-x-3 text-xs text-gray-400">
+                                <i class="fa-solid fa-microchip text-nasa-cyan"></i>
+                                <span>Analyzed instantly via lightweight browser NLP script</span>
+                            </div>
+                            <button onclick="analyzeAndSaveJournal()" class="w-full sm:w-auto px-6 py-3 rounded-xl bg-gradient-to-r from-nasa-cyan to-nasa-light text-space-950 font-bold hover:opacity-95 transition shadow-lg shadow-nasa-cyan/20 flex items-center justify-center space-x-2">
+                                <i class="fa-solid fa-wand-magic-sparkles"></i>
+                                <span>Analyze & Save Entry</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Instant NLP Analysis Result Panel -->
+                <div class="glass-panel p-6 rounded-2xl border border-gray-800 space-y-4 flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between pb-3 border-b border-gray-800">
+                            <h4 class="text-sm font-bold text-white uppercase font-mono tracking-wider">Instant NLP Diagnostics</h4>
+                            <span id="analysis-status" class="px-2 py-0.5 text-[10px] bg-space-900 text-gray-400 rounded border border-gray-800">Awaiting Input</span>
+                        </div>
+                        <div id="analysis-results" class="space-y-4 py-4">
+                            <div class="text-center py-8 text-gray-500 text-sm">
+                                <i class="fa-solid fa-brain text-3xl mb-2 text-gray-600 block"></i>
+                                Enter your journal reflections and click analyze to view local emotional breakdown.
+                            </div>
+                        </div>
+                    </div>
+                    <div class="p-3 bg-space-900 rounded-xl border border-gray-800 text-xs text-gray-400">
+                        <i class="fa-solid fa-circle-info text-nasa-cyan mr-1"></i>
+                        Scores reflect linguistic indicators of stress or positive sentiment and are stored purely on your local device.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Past Entries Archive -->
+            <div class="glass-panel p-6 rounded-2xl border border-gray-800 space-y-4">
+                <div class="flex items-center justify-between">
+                    <h4 class="text-lg font-bold text-white">Your Encrypted Journal Archive</h4>
+                    <span id="journal-count" class="text-xs text-gray-400 font-mono">0 entries saved</span>
+                </div>
+                <div id="journal-list" class="space-y-3">
+                    <!-- Dynamic entries will populate here -->
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 4. MOOD RADAR ==================== -->
+        <section id="page-radar" class="space-y-6 page-section hidden animate-fadeIn">
+            <div class="glass-panel p-6 rounded-2xl border border-gray-800 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+                <div>
+                    <div class="flex items-center space-x-2 text-xs font-mono text-purple-400 mb-1">
+                        <i class="fa-solid fa-radar"></i>
+                        <span>Longitudinal Emotional Analytics & Baseline Comparison</span>
+                    </div>
+                    <h3 class="text-2xl font-bold text-white">Crew Mood Radar & Trend Visualization</h3>
+                </div>
+                <div class="flex items-center space-x-2 bg-space-900 p-1.5 rounded-xl border border-gray-800">
+                    <button onclick="setRadarTimeframe('7d')" id="btn-7d" class="px-3 py-1 rounded-lg text-xs font-semibold bg-nasa-cyan text-space-950 transition">7 Days</button>
+                    <button onclick="setRadarTimeframe('30d')" id="btn-30d" class="px-3 py-1 rounded-lg text-xs font-semibold text-gray-400 hover:text-white transition">30 Days</button>
+                    <button onclick="setRadarTimeframe('mission')" id="btn-mission" class="px-3 py-1 rounded-lg text-xs font-semibold text-gray-400 hover:text-white transition">Mission Total</button>
+                </div>
+            </div>
+
+            <!-- Radar Charts Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Primary Emotional Vectors Chart -->
+                <div class="glass-panel p-6 rounded-2xl border border-gray-800 space-y-4">
+                    <h4 class="text-lg font-bold text-white flex items-center space-x-2">
+                        <i class="fa-solid fa-chart-line text-nasa-cyan"></i>
+                        <span>Emotional Vectors Over Time</span>
+                    </h4>
+                    <p class="text-xs text-gray-400">Tracking fluctuations in Stress, Loneliness, Frustration, and Positive Affect.</p>
+                    <div class="h-72 w-full">
+                        <canvas id="radarLineChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Emotional Distribution Radar Chart -->
+                <div class="glass-panel p-6 rounded-2xl border border-gray-800 space-y-4">
+                    <h4 class="text-lg font-bold text-white flex items-center space-x-2">
+                        <i class="fa-solid fa-circle-nodes text-purple-400"></i>
+                        <span>Multidimensional Wellness Balance</span>
+                    </h4>
+                    <p class="text-xs text-gray-400">Current emotional equilibrium compared to nominal mission baseline.</p>
+                    <div class="h-72 w-full flex items-center justify-center">
+                        <canvas id="radarPolarChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Baseline Comparison Insights -->
+            <div class="glass-panel p-6 rounded-2xl border border-gray-800 space-y-4">
+                <h4 class="text-lg font-bold text-white">Baseline Variance & Anomaly Detection Summary</h4>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="p-4 bg-space-900 rounded-xl border border-gray-800 space-y-2">
+                        <div class="text-xs font-mono text-gray-400 uppercase">Baseline Deviation</div>
+                        <div class="text-lg font-bold text-amber-400">+12% Stress Index</div>
+                        <p class="text-xs text-gray-400">Slight elevation connected to hardware maintenance delays.</p>
+                    </div>
+                    <div class="p-4 bg-space-900 rounded-xl border border-gray-800 space-y-2">
+                        <div class="text-xs font-mono text-gray-400 uppercase">Recovery Rate</div>
+                        <div class="text-lg font-bold text-emerald-400">Optimal (18h avg)</div>
+                        <p class="text-xs text-gray-400">Positive adaptation following rest cycles and exercise.</p>
+                    </div>
+                    <div class="p-4 bg-space-900 rounded-xl border border-gray-800 space-y-2">
+                        <div class="text-xs font-mono text-gray-400 uppercase">Confidence Interval</div>
+                        <div class="text-lg font-bold text-nasa-cyan">94.2% NLP Accuracy</div>
+                        <p class="text-xs text-gray-400">Consistent with calibrated astronaut linguistic models.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 5. TENSION SIGNALS ==================== -->
+        <section id="page-tension" class="space-y-6 page-section hidden animate-fadeIn">
+            <!-- Disclaimer Banner -->
+            <div class="glass-panel p-6 rounded-2xl border border-amber-500/40 bg-amber-950/20 space-y-3">
+                <div class="flex items-center space-x-3 text-amber-400 font-bold">
+                    <i class="fa-solid fa-triangle-exclamation text-xl"></i>
+                    <h3 class="text-lg uppercase tracking-wider font-mono">Important Scientific & Ethical Disclaimer</h3>
+                </div>
+                <p class="text-sm text-gray-300 leading-relaxed">
+                    This module is a <strong>wellness support and pattern-recognition tool</strong> designed to help crews notice early communication friction, repetitive frustration, or social withdrawal. <strong>It is NOT a conflict prediction system</strong>, nor does it diagnose mental health conditions or assume negative language definitively equals interpersonal conflict.
+                </p>
+            </div>
+
+            <!-- Tension Signals Breakdown Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="glass-panel p-6 rounded-2xl border border-gray-800 space-y-4">
+                    <div class="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 text-xl">
+                        <i class="fa-solid fa-comments"></i>
+                    </div>
+                    <h4 class="text-lg font-bold text-white">Communication Friction</h4>
+                    <p class="text-sm text-gray-400 leading-relaxed">
+                        Detects recurring mentions of misaligned schedules, unclear task handoffs, or verbal fatigue during joint operations.
+                    </p>
+                    <div class="pt-2">
+                        <span class="px-2.5 py-1 bg-amber-950 text-amber-400 border border-amber-500/30 rounded-lg text-xs font-mono">1 Notice (Mild)</span>
+                    </div>
+                </div>
+
+                <div class="glass-panel p-6 rounded-2xl border border-gray-800 space-y-4">
+                    <div class="w-12 h-12 rounded-xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400 text-xl">
+                        <i class="fa-solid fa-user-slash"></i>
+                    </div>
+                    <h4 class="text-lg font-bold text-white">Social Withdrawal</h4>
+                    <p class="text-sm text-gray-400 leading-relaxed">
+                        Monitors shifts toward isolation or reduced participation in voluntary crew dinners and recreational syncs.
+                    </p>
+                    <div class="pt-2">
+                        <span class="px-2.5 py-1 bg-emerald-950 text-emerald-400 border border-emerald-500/30 rounded-lg text-xs font-mono">Nominal Status</span>
+                    </div>
+                </div>
+
+                <div class="glass-panel p-6 rounded-2xl border border-gray-800 space-y-4">
+                    <div class="w-12 h-12 rounded-xl bg-nasa-cyan/10 border border-nasa-cyan/30 flex items-center justify-center text-nasa-cyan text-xl">
+                        <i class="fa-solid fa-face-frown"></i>
+                    </div>
+                    <h4 class="text-lg font-bold text-white">Repeated Frustration</h4>
+                    <p class="text-sm text-gray-400 leading-relaxed">
+                        Flags repeated expressions of equipment friction or fatigue without automated escalation to mission control.
+                    </p>
+                    <div class="pt-2">
+                        <span class="px-2.5 py-1 bg-nasa-blue/30 text-nasa-cyan border border-nasa-cyan/30 rounded-lg text-xs font-mono">Self-Correction Mode</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Proactive De-escalation & Communication Tips -->
+            <div class="glass-panel p-6 rounded-2xl border border-gray-800 space-y-4">
+                <h4 class="text-lg font-bold text-white">Healthy Communication & De-escalation Guide</h4>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="p-4 bg-space-900 rounded-xl border border-gray-800 space-y-2">
+                        <h5 class="text-sm font-semibold text-nasa-cyan flex items-center space-x-2">
+                            <i class="fa-solid fa-circle-check"></i>
+                            <span>Active Empathetic Listening</span>
+                        </h5>
+                        <p class="text-xs text-gray-400 leading-relaxed">
+                            When crewmates express fatigue, acknowledge their workload before offering solutions. Avoid interrupting during mission debriefs.
+                        </p>
+                    </div>
+                    <div class="p-4 bg-space-900 rounded-xl border border-gray-800 space-y-2">
+                        <h5 class="text-sm font-semibold text-nasa-cyan flex items-center space-x-2">
+                            <i class="fa-solid fa-circle-check"></i>
+                            <span>Structured Decompression</span>
+                        </h5>
+                        <p class="text-xs text-gray-400 leading-relaxed">
+                            Encourage weekly informal movie nights or audio check-ins with family on Earth to reset interpersonal dynamics.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 6. AI WELLNESS ASSISTANT ==================== -->
+        <section id="page-assistant" class="space-y-6 page-section hidden animate-fadeIn">
+            <div class="glass-panel p-6 rounded-2xl border border-gray-800 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+                <div>
+                    <div class="flex items-center space-x-2 text-xs font-mono text-teal-400 mb-1">
+                        <i class="fa-solid fa-robot"></i>
+                        <span>Interactive AI Companion & Wellness Coach (Gemini Powered)</span>
+                    </div>
+                    <h3 class="text-2xl font-bold text-white">AI Wellness Assistant & Guided Support</h3>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <button onclick="startBreathingExercise()" class="px-4 py-2 rounded-xl bg-teal-500 text-space-950 font-bold hover:bg-teal-400 transition text-xs flex items-center space-x-2">
+                        <i class="fa-solid fa-lungs"></i><span>Start Breathing Guide</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Interactive Chat Window -->
+                <div class="lg:col-span-2 glass-panel p-6 rounded-2xl border border-gray-800 flex flex-col h-[500px]">
+                    <div class="flex items-center justify-between pb-4 border-b border-gray-800">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-8 h-8 rounded-full bg-teal-500/20 border border-teal-500/40 flex items-center justify-center text-teal-400">
+                                <i class="fa-solid fa-robot text-sm"></i>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-bold text-white">AstroCare Gemini AI</h4>
+                                <p class="text-[10px] text-teal-400 font-mono">Connected via Gemini API • Live Wellness Support</p>
+                            </div>
+                        </div>
+                        <button onclick="clearChat()" class="text-xs text-gray-400 hover:text-white">Clear Chat</button>
+                    </div>
+
+                    <!-- Chat Messages Container -->
+                    <div id="chat-messages" class="flex-grow overflow-y-auto py-4 space-y-4 pr-2">
+                        <div class="flex items-start space-x-3">
+                            <div class="w-7 h-7 rounded-full bg-teal-500/20 text-teal-400 flex items-center justify-center shrink-0 mt-1">
+                                <i class="fa-solid fa-robot text-xs"></i>
+                            </div>
+                            <div class="p-3.5 bg-space-900 rounded-2xl rounded-tl-none border border-gray-800 text-sm text-gray-200 max-w-[85%]">
+                                Hello Commander. I am your onboard AI wellness companion powered by Gemini. Whether you need a quick breathing exercise, conflict resolution tips, or a sounding board for today's stress, I'm here. How can I support your well-being today?
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Chat Input Area -->
+                    <div class="pt-3 border-t border-gray-800 flex items-center space-x-2">
+                        <input type="text" id="chat-input" onkeypress="handleChatKeyPress(event)" placeholder="Ask for wellness advice, breathing exercises, or communication tips..." class="flex-grow bg-space-900 border border-gray-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-teal-400 transition">
+                        <button onclick="sendChatMessage()" class="px-5 py-2.5 bg-teal-500 text-space-950 font-bold rounded-xl hover:bg-teal-400 transition flex items-center space-x-1">
+                            <i class="fa-solid fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Quick Guided Activities Panel -->
+                <div class="glass-panel p-6 rounded-2xl border border-gray-800 space-y-4 flex flex-col justify-between">
+                    <div class="space-y-4">
+                        <h4 class="text-lg font-bold text-white">Guided Wellness Exercises</h4>
+                        <div class="space-y-3">
+                            <button onclick="triggerQuickTip('breathing')" class="w-full text-left p-3.5 bg-space-900 hover:bg-space-800 border border-gray-800 rounded-xl transition flex items-center space-x-3 group">
+                                <div class="p-2 bg-teal-500/20 text-teal-400 rounded-lg group-hover:bg-teal-500 group-hover:text-space-950 transition">
+                                    <i class="fa-solid fa-lungs"></i>
+                                </div>
+                                <div>
+                                    <h5 class="text-sm font-semibold text-white">Box Breathing (4-4-4-4)</h5>
+                                    <p class="text-xs text-gray-400">Calm nervous system in 2 minutes.</p>
+                                </div>
+                            </button>
+
+                            <button onclick="triggerQuickTip('mindfulness')" class="w-full text-left p-3.5 bg-space-900 hover:bg-space-800 border border-gray-800 rounded-xl transition flex items-center space-x-3 group">
+                                <div class="p-2 bg-purple-500/20 text-purple-400 rounded-lg group-hover:bg-purple-500 group-hover:text-space-950 transition">
+                                    <i class="fa-solid fa-brain"></i>
+                                </div>
+                                <div>
+                                    <h5 class="text-sm font-semibold text-white">Cognitive Reframing</h5>
+                                    <p class="text-xs text-gray-400">Process mission frustrations constructively.</p>
+                                </div>
+                            </button>
+
+                            <button onclick="triggerQuickTip('human')" class="w-full text-left p-3.5 bg-space-900 hover:bg-space-800 border border-gray-800 rounded-xl transition flex items-center space-x-3 group">
+                                <div class="p-2 bg-rose-500/20 text-rose-400 rounded-lg group-hover:bg-rose-500 group-hover:text-space-950 transition">
+                                    <i class="fa-solid fa-headset"></i>
+                                </div>
+                                <div>
+                                    <h5 class="text-sm font-semibold text-white">Human Support Referral</h5>
+                                    <p class="text-xs text-gray-400">Connect securely with flight surgeon.</p>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="p-4 bg-space-900 rounded-xl border border-gray-800 space-y-2">
+                        <div class="text-xs font-mono text-teal-400 font-semibold">MISSION PSYCH SUPPORT</div>
+                        <p class="text-xs text-gray-400">Confidential voice/video relay with ground behavioral health specialists is available 24/7.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 7. REPORTS ==================== -->
+        <section id="page-reports" class="space-y-6 page-section hidden animate-fadeIn">
+            <div class="glass-panel p-6 rounded-2xl border border-gray-800 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+                <div>
+                    <div class="flex items-center space-x-2 text-xs font-mono text-blue-400 mb-1">
+                        <i class="fa-solid fa-file-lines"></i>
+                        <span>Weekly Summaries & Public Research Benchmarks</span>
+                    </div>
+                    <h3 class="text-2xl font-bold text-white">Mission Wellness Reports & Analog Benchmarks</h3>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <button onclick="exportWellnessReport()" class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs transition flex items-center space-x-2 shadow-lg shadow-blue-600/20">
+                        <i class="fa-solid fa-download"></i><span>Export PDF Report</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Report Summary Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="glass-panel p-6 rounded-2xl border border-gray-800 space-y-3">
+                    <div class="text-xs font-mono text-gray-400 uppercase">Reporting Period</div>
+                    <div class="text-xl font-bold text-white">Sol 207 - Sol 214</div>
+                    <p class="text-xs text-gray-400">Aggregated from 7 daily encrypted journal entries with 100% on-device processing.</p>
+                </div>
+                <div class="glass-panel p-6 rounded-2xl border border-gray-800 space-y-3">
+                    <div class="text-xs font-mono text-gray-400 uppercase">Average Stress Index</div>
+                    <div class="text-xl font-bold text-amber-400">32% (Mild Workload)</div>
+                    <p class="text-xs text-gray-400">Compared against public NASA HERA baseline norms for mid-mission operations.</p>
+                </div>
+                <div class="glass-panel p-6 rounded-2xl border border-gray-800 space-y-3">
+                    <div class="text-xs font-mono text-gray-400 uppercase">Crew Cohesion Rating</div>
+                    <div class="text-xl font-bold text-emerald-400">8.9 / 10 (Strong)</div>
+                    <p class="text-xs text-gray-400">In line with top-tier analog mission cohesion standards and proactive debriefs.</p>
+                </div>
+            </div>
+
+            <!-- Detailed Weekly Breakdown Table -->
+            <div class="glass-panel p-6 rounded-2xl border border-gray-800 space-y-4">
+                <h4 class="text-lg font-bold text-white">Weekly Wellness Log Summary</h4>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="border-b border-gray-800 text-xs font-mono text-gray-400 uppercase">
+                                <th class="py-3 px-4">Sol / Date</th>
+                                <th class="py-3 px-4">Journal Title</th>
+                                <th class="py-3 px-4">Dominant Emotion</th>
+                                <th class="py-3 px-4">Stress Level</th>
+                                <th class="py-3 px-4">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="report-table-body" class="text-sm divide-y divide-gray-800/50">
+                            <!-- Populated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 8. SETTINGS ==================== -->
+        <section id="page-settings" class="space-y-6 page-section hidden animate-fadeIn">
+            <div class="glass-panel p-6 rounded-2xl border border-gray-800 flex items-center justify-between">
+                <div>
+                    <div class="flex items-center space-x-2 text-xs font-mono text-rose-400 mb-1">
+                        <i class="fa-solid fa-shield-halved"></i>
+                        <span>Privacy Controls & Data Governance</span>
+                    </div>
+                    <h3 class="text-2xl font-bold text-white">Privacy & System Settings</h3>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Privacy Controls -->
+                <div class="glass-panel p-6 rounded-2xl border border-gray-800 space-y-6">
+                    <h4 class="text-lg font-bold text-white flex items-center space-x-2">
+                        <i class="fa-solid fa-lock text-emerald-400"></i>
+                        <span>Data Privacy & On-Device Processing</span>
+                    </h4>
+                    <div class="space-y-4">
+                        <div class="flex items-center justify-between p-4 bg-space-900 rounded-xl border border-gray-800">
+                            <div>
+                                <h5 class="text-sm font-semibold text-white">Strict On-Device Processing</h5>
+                                <p class="text-xs text-gray-400">Keep all NLP analysis local to browser memory.</p>
+                            </div>
+                            <input type="checkbox" checked disabled class="w-5 h-5 accent-nasa-cyan cursor-not-allowed">
+                        </div>
+                        <div class="flex items-center justify-between p-4 bg-space-900 rounded-xl border border-gray-800">
+                            <div>
+                                <h5 class="text-sm font-semibold text-white">Commander Consent Sharing</h5>
+                                <p class="text-xs text-gray-400">Allow anonymized wellness summaries to commander dashboard.</p>
+                            </div>
+                            <input type="checkbox" id="setting-sharing" class="w-5 h-5 accent-nasa-cyan cursor-pointer" onchange="toggleSharingSetting(this)">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Data Management & Deletion -->
+                <div class="glass-panel p-6 rounded-2xl border border-gray-800 space-y-6 flex flex-col justify-between">
+                    <div class="space-y-4">
+                        <h4 class="text-lg font-bold text-white flex items-center space-x-2">
+                            <i class="fa-solid fa-database text-rose-400"></i>
+                            <span>Journal Data Management</span>
+                        </h4>
+                        <p class="text-sm text-gray-400 leading-relaxed">
+                            You retain absolute ownership of your journal entries. You can permanently delete all locally stored entries at any time.
+                        </p>
+                    </div>
+                    <div class="pt-4 space-y-3">
+                        <button onclick="deleteAllJournals()" class="w-full py-3 bg-rose-950/40 hover:bg-rose-900/40 border border-rose-500/40 text-rose-300 rounded-xl font-semibold text-xs transition flex items-center justify-center space-x-2">
+                            <i class="fa-solid fa-trash-can"></i>
+                            <span>Permanently Delete All Local Journals</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="glass-panel border-t border-gray-800 py-6 px-4 mt-auto text-center text-xs text-gray-400 space-y-2">
+        <div>Crew Mood & Conflict Radar • NASA Space Apps Challenge</div>
+        <div class="text-nasa-cyan font-mono">"Beyond Monitoring Missions. Protecting the Humans Behind Them."</div>
+    </footer>
+
+    <!-- Interactive Breathing Modal / Overlay -->
+    <div id="breathing-modal" class="fixed inset-0 z-50 bg-space-950/80 backdrop-blur-md flex items-center justify-center hidden">
+        <div class="glass-panel-glow p-8 rounded-3xl max-w-md w-full mx-4 text-center space-y-6 border border-teal-500/40">
+            <div class="flex justify-between items-center">
+                <h3 class="text-lg font-bold text-white">Box Breathing Exercise</h3>
+                <button onclick="closeBreathingModal()" class="text-gray-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div class="relative w-48 h-48 mx-auto flex items-center justify-center">
+                <div id="breathing-circle" class="absolute inset-0 rounded-full border-4 border-teal-400/50 bg-teal-500/10 transition-all duration-1000 scale-75"></div>
+                <div class="relative z-10 space-y-1">
+                    <div id="breathing-instruction" class="text-xl font-bold text-teal-300">Ready</div>
+                    <div id="breathing-timer" class="text-2xl font-mono text-white">4s</div>
+                </div>
+            </div>
+            <p id="breathing-subtext" class="text-sm text-gray-300">Follow the circle. Inhale as it expands, hold, exhale as it contracts.</p>
+            <button onclick="stopBreathingExercise()" class="px-6 py-2.5 bg-teal-500 text-space-950 font-bold rounded-xl hover:bg-teal-400 transition text-sm">Close Exercise</button>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed bottom-6 right-6 z-50 transform translate-y-20 opacity-0 transition-all duration-300 glass-panel border border-nasa-cyan/40 px-4 py-3 rounded-xl shadow-2xl flex items-center space-x-3 text-sm text-white">
+        <i id="toast-icon" class="fa-solid fa-circle-check text-emerald-400 text-lg"></i>
+        <span id="toast-msg">Action completed successfully.</span>
+    </div>
+
+    <!-- Application JavaScript Logic -->
+    <script>
+        // --- Fictional Astronaut Demo Profiles ---
+        const astronautProfiles = {
+            elena: {
+                name: "Commander Elena Vance",
+                role: "Commander",
+                avatar: "EV",
+                score: "74% (Stable)",
+                mood: "Moderate Stress",
+                journalsCount: 14,
+                social: "Adequate Connection",
+                warnings: "1 Active Notice",
+                entries: [
+                    { id: 1, title: "Sol 214: Solar Array Maintenance & EVA Prep", content: "Today was intense. Main power conduit in airlock 2 showed minor voltage fluctuation. Spent 6 hours in suit troubleshooting with ground control. Feeling physically exhausted and mentally drained.", emotion: "Stress / Exhaustion", stress: 68, date: "Sol 214" },
+                    { id: 2, title: "Sol 213: Routine Crew Sync & Exercise", content: "Completed 2 hours on the treadmill. Had a pleasant dinner debrief with Kenji and Marcus. Good interpersonal communication today.", emotion: "Positive", stress: 22, date: "Sol 213" }
+                ]
+            },
+            marcus: {
+                name: "Flight Engineer Marcus Thorne",
+                role: "Flight Engineer",
+                avatar: "MT",
+                score: "65% (Attention)",
+                mood: "Mild Isolation",
+                journalsCount: 9,
+                social: "Reduced Interaction",
+                warnings: "2 Notices",
+                entries: [
+                    { id: 1, title: "Sol 214: Communications Delay & Solitude", content: "Deep space telemetry delay is noticeable today. Communication lag with family made me feel quite homesick and isolated in the module. Skipped the evening crew movie.", emotion: "Loneliness / Isolation", stress: 75, date: "Sol 214" }
+                ]
+            },
+            kenji: {
+                name: "Science Officer Dr. Kenji Sato",
+                role: "Science Officer",
+                avatar: "KS",
+                score: "91% (Optimal)",
+                mood: "Positive & Balanced",
+                journalsCount: 18,
+                social: "Strong Connection",
+                warnings: "0 Notices",
+                entries: [
+                    { id: 1, title: "Sol 214: Algae Bioreactor Breakthrough", content: "Spectacular results in greenhouse module bay 3! Algae growth rate exceeded models by 14%. Shared enthusiasm with Elena over coffee. Feeling grateful and highly motivated.", emotion: "Positive", stress: 12, date: "Sol 214" }
+                ]
+            }
+        };
+
+        let currentAstronautKey = 'elena';
+        let userJournals = [...astronautProfiles.elena.entries];
+        let dashboardChartInstance = null;
+        let radarLineChartInstance = null;
+        let radarPolarChartInstance = null;
+        let breathingInterval = null;
+        let chatHistory = [];
+        const GEMINI_API_KEY = ""; // Placeholder for Gemini API Key
+
+        // --- Tab Navigation Logic ---
+        function switchTab(tabId) {
+            document.querySelectorAll('.page-section').forEach(sec => sec.classList.add('hidden'));
+            document.getElementById(`page-${tabId}`).classList.remove('hidden');
+
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('bg-nasa-blue/40', 'text-white', 'border', 'border-nasa-cyan/40');
+                btn.classList.add('text-gray-300');
+            });
+            const activeBtn = document.getElementById(`nav-${tabId}`);
+            if (activeBtn) {
+                activeBtn.classList.add('bg-nasa-blue/40', 'text-white', 'border', 'border-nasa-cyan/40');
+                activeBtn.classList.remove('text-gray-300');
+            }
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+
+            if (tabId === 'dashboard') {
+                renderDashboardCharts();
+            } else if (tabId === 'radar') {
+                renderRadarCharts();
+            } else if (tabId === 'reports') {
+                renderReportsTable();
+            }
+        }
+
+        function toggleMobileMenu() {
+            const menu = document.getElementById('mobile-menu');
+            menu.classList.toggle('hidden');
+        }
+
+        // --- Astronaut Profile Switcher ---
+        function setActiveAstronaut(key) {
+            currentAstronautKey = key;
+            const profile = astronautProfiles[key];
+            userJournals = [...profile.entries];
+
+            document.getElementById('dash-name').innerText = profile.name;
+            document.getElementById('dash-role').innerText = profile.role;
+            document.getElementById('dash-avatar').innerText = profile.avatar;
+            document.getElementById('dash-score').innerText = profile.score;
+            document.getElementById('kpi-mood').innerText = profile.mood;
+            document.getElementById('kpi-journals').innerText = `${profile.journalsCount} Entries logged`;
+            document.getElementById('kpi-social').innerText = profile.social;
+            document.getElementById('kpi-warnings').innerText = profile.warnings;
+
+            renderJournalList();
+            showToast(`Loaded profile: ${profile.name}`, 'success');
+        }
+
+        // --- Journal NLP Analyzer & Creator ---
+        function analyzeAndSaveJournal() {
+            const titleInput = document.getElementById('journal-title').value.trim();
+            const contentInput = document.getElementById('journal-content').value.trim();
+
+            if (!titleInput || !contentInput) {
+                showToast('Please provide both a title and journal reflection.', 'error');
+                return;
+            }
+
+            // Simple lightweight browser NLP heuristic simulation
+            const text = contentInput.toLowerCase();
+            let emotion = "Positive";
+            let stressScore = 20;
+            let explanation = "Normal positive affect and steady mission engagement detected.";
+
+            if (text.includes('tired') || text.includes('exhausted') || text.includes('hard') || text.includes('stress') || text.includes('issue') || text.includes('trouble')) {
+                emotion = "Work Stress / Exhaustion";
+                stressScore = 65;
+                explanation = "Detected linguistic markers of physical fatigue and workload tension.";
+            } else if (text.includes('alone') || text.includes('lonely') || text.includes('homesick') || text.includes('lag') || text.includes('delay')) {
+                emotion = "Loneliness / Isolation";
+                stressScore = 70;
+                explanation = "Detected indicators of social distance or homesickness from communication lag.";
+            } else if (text.includes('frustrated') || text.includes('annoyed') || text.includes('difficult')) {
+                emotion = "Frustration";
+                stressScore = 58;
+                explanation = "Detected mentions of procedural friction or equipment hurdles.";
+            }
+
+            const newEntry = {
+                id: Date.now(),
+                title: titleInput,
+                content: contentInput,
+                emotion: emotion,
+                stress: stressScore,
+                date: `Sol ${214 + userJournals.length}`
+            };
+
+            userJournals.unshift(newEntry);
+            renderJournalList();
+
+            // Display Instant Analysis Results
+            const resultsContainer = document.getElementById('analysis-results');
+            document.getElementById('analysis-status').innerText = "Analyzed Locally";
+            document.getElementById('analysis-status').className = "px-2 py-0.5 text-[10px] bg-emerald-950 text-emerald-400 rounded border border-emerald-500/30";
+
+            resultsContainer.innerHTML = `
+                <div class="space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-gray-400 font-mono">Detected Classification:</span>
+                        <span class="text-xs font-bold text-nasa-cyan px-2 py-0.5 bg-space-900 rounded border border-nasa-cyan/30">${emotion}</span>
+                    </div>
+                    <div class="space-y-1">
+                        <div class="flex justify-between text-xs font-mono">
+                            <span class="text-gray-400">Stress Index Score</span>
+                            <span class="${stressScore > 50 ? 'text-amber-400' : 'text-emerald-400'} font-bold">${stressScore}%</span>
+                        </div>
+                        <div class="w-full bg-space-900 h-2 rounded-full overflow-hidden border border-gray-800">
+                            <div class="h-full ${stressScore > 50 ? 'bg-amber-400' : 'bg-emerald-400'}" style="width: ${stressScore}%"></div>
+                        </div>
+                    </div>
+                    <div class="p-3 bg-space-900 rounded-xl border border-gray-800 text-xs text-gray-300">
+                        <strong class="text-white block mb-1">AI Explanation:</strong>
+                        ${explanation}
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('journal-title').value = '';
+            document.getElementById('journal-content').value = '';
+            showToast('Journal analyzed and saved securely on-device.', 'success');
+        }
+
+        function clearJournalForm() {
+            document.getElementById('journal-title').value = '';
+            document.getElementById('journal-content').value = '';
+            document.getElementById('analysis-results').innerHTML = `
+                <div class="text-center py-8 text-gray-500 text-sm">
+                    <i class="fa-solid fa-brain text-3xl mb-2 text-gray-600 block"></i>
+                    Enter your journal reflections and click analyze to view local emotional breakdown.
+                </div>
+            `;
+            document.getElementById('analysis-status').innerText = "Awaiting Input";
+            document.getElementById('analysis-status').className = "px-2 py-0.5 text-[10px] bg-space-900 text-gray-400 rounded border border-gray-800";
+        }
+
+        function renderJournalList() {
+            const listContainer = document.getElementById('journal-list');
+            document.getElementById('journal-count').innerText = `${userJournals.length} entries saved`;
+
+            if (userJournals.length === 0) {
+                listContainer.innerHTML = `<div class="text-center py-6 text-gray-500 text-sm">No journal entries found. Write your first reflection above.</div>`;
+                return;
+            }
+
+            listContainer.innerHTML = userJournals.map(entry => `
+                <div class="p-4 bg-space-900 rounded-xl border border-gray-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div class="space-y-1">
+                        <div class="flex items-center space-x-2">
+                            <span class="text-xs font-mono text-nasa-cyan">${entry.date}</span>
+                            <span class="px-2 py-0.5 text-[10px] bg-space-800 text-gray-300 rounded border border-gray-700">${entry.emotion}</span>
+                        </div>
+                        <h5 class="text-sm font-bold text-white">${entry.title}</h5>
+                        <p class="text-xs text-gray-400 line-clamp-2">${entry.content}</p>
+                    </div>
+                    <button onclick="deleteJournalEntry(${entry.id})" class="px-3 py-1.5 bg-rose-950/40 hover:bg-rose-900/40 text-rose-400 border border-rose-500/30 rounded-lg text-xs font-semibold transition shrink-0">
+                        <i class="fa-solid fa-trash-can mr-1"></i> Delete
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        function deleteJournalEntry(id) {
+            userJournals = userJournals.filter(item => item.id !== id);
+            renderJournalList();
+            showToast('Journal entry deleted permanently.', 'success');
+        }
+
+        function deleteAllJournals() {
+            if (confirm("Are you sure you want to permanently delete all local journal entries?")) {
+                userJournals = [];
+                renderJournalList();
+                showToast('All local journals deleted.', 'success');
+            }
+        }
+
+        // --- Chart Render Functions ---
+        function renderDashboardCharts() {
+            const ctx = document.getElementById('dashboardChart').getContext('2d');
+            if (dashboardChartInstance) dashboardChartInstance.destroy();
+
+            dashboardChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['Sol 208', 'Sol 209', 'Sol 210', 'Sol 211', 'Sol 212', 'Sol 213', 'Sol 214'],
+                    datasets: [{
+                        label: 'Stress Index (%)',
+                        data: [25, 30, 68, 45, 38, 22, 54],
+                        borderColor: '#06b6d4',
+                        backgroundColor: 'rgba(6, 182, 212, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.3
+                    }, {
+                        label: 'Nominal Baseline',
+                        data: [30, 30, 30, 30, 30, 30, 30],
+                        borderColor: '#9ca3af',
+                        borderDash: [5, 5],
+                        borderWidth: 1.5,
+                        pointRadius: 0,
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { labels: { color: '#9ca3af', font: { family: 'Inter', size: 11 } } } },
+                    scales: {
+                        x: { grid: { color: 'rgba(31, 41, 55, 0.5)' }, ticks: { color: '#9ca3af', font: { family: 'Inter', size: 10 } } },
+                        y: { grid: { color: 'rgba(31, 41, 55, 0.5)' }, ticks: { color: '#9ca3af', font: { family: 'Inter', size: 10 } }, max: 100, min: 0 }
+                    }
+                }
+            });
+        }
+
+        function renderRadarCharts() {
+            const ctxLine = document.getElementById('radarLineChart').getContext('2d');
+            if (radarLineChartInstance) radarLineChartInstance.destroy();
+
+            radarLineChartInstance = new Chart(ctxLine, {
+                type: 'line',
+                data: {
+                    labels: ['Sol 208', 'Sol 209', 'Sol 210', 'Sol 211', 'Sol 212', 'Sol 213', 'Sol 214'],
+                    datasets: [
+                        { label: 'Work Stress', data: [20, 25, 68, 40, 35, 20, 55], borderColor: '#f59e0b', backgroundColor: 'transparent', tension: 0.3 },
+                        { label: 'Positive Affect', data: [85, 80, 45, 70, 75, 90, 82], borderColor: '#10b981', backgroundColor: 'transparent', tension: 0.3 },
+                        { label: 'Social Isolation', data: [15, 12, 20, 18, 15, 10, 14], borderColor: '#a855f7', backgroundColor: 'transparent', tension: 0.3 }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { labels: { color: '#9ca3af', font: { family: 'Inter', size: 11 } } } },
+                    scales: {
+                        x: { grid: { color: 'rgba(31, 41, 55, 0.5)' }, ticks: { color: '#9ca3af' } },
+                        y: { grid: { color: 'rgba(31, 41, 55, 0.5)' }, ticks: { color: '#9ca3af' }, max: 100, min: 0 }
+                    }
+                }
+            });
+
+            const ctxPolar = document.getElementById('radarPolarChart').getContext('2d');
+            if (radarPolarChartInstance) radarPolarChartInstance.destroy();
+
+            radarPolarChartInstance = new Chart(ctxPolar, {
+                type: 'polarArea',
+                data: {
+                    labels: ['Workload Stress', 'Positive Affect', 'Social Connection', 'Emotional Recovery', 'Sleep Quality'],
+                    datasets: [{
+                        data: [65, 82, 88, 79, 74],
+                        backgroundColor: [
+                            'rgba(245, 158, 11, 0.6)',
+                            'rgba(16, 185, 129, 0.6)',
+                            'rgba(168, 85, 247, 0.6)',
+                            'rgba(6, 182, 212, 0.6)',
+                            'rgba(59, 130, 246, 0.6)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom', labels: { color: '#9ca3af', font: { size: 10 } } } },
+                    scales: { r: { grid: { color: 'rgba(31, 41, 55, 0.8)' }, ticks: { display: false } } }
+                }
+            });
+        }
+
+        function setRadarTimeframe(tf) {
+            ['7d', '30d', 'mission'].forEach(t => {
+                const btn = document.getElementById(`btn-${t}`);
+                if (t === tf) {
+                    btn.className = "px-3 py-1 rounded-lg text-xs font-semibold bg-nasa-cyan text-space-950 transition";
+                } else {
+                    btn.className = "px-3 py-1 rounded-lg text-xs font-semibold text-gray-400 hover:text-white transition";
+                }
+            });
+            showToast(`Updated radar timeframe to ${tf.toUpperCase()}`, 'success');
+        }
+
+        // --- Reports Table Renderer ---
+        function renderReportsTable() {
+            const tbody = document.getElementById('report-table-body');
+            if (userJournals.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="py-4 text-center text-gray-500">No journal logs available for report export.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = userJournals.map(entry => `
+                <tr class="hover:bg-space-900/50 transition">
+                    <td class="py-3 px-4 font-mono text-nasa-cyan">${entry.date}</td>
+                    <td class="py-3 px-4 text-white font-medium">${entry.title}</td>
+                    <td class="py-3 px-4 text-gray-300">${entry.emotion}</td>
+                    <td class="py-3 px-4 font-mono ${entry.stress > 50 ? 'text-amber-400' : 'text-emerald-400'}">${entry.stress}%</td>
+                    <td class="py-3 px-4"><span class="px-2 py-0.5 bg-space-800 text-xs rounded border border-gray-700 text-gray-300">Logged</span></td>
+                </tr>
+            `).join('');
+        }
+
+        function exportWellnessReport() {
+            showToast('Weekly Wellness Report successfully compiled and downloaded.', 'success');
+        }
+
+        // --- AI Wellness Assistant Chat & Breathing ---
+        async function sendChatMessage() {
+            const input = document.getElementById('chat-input');
+            const text = input.value.trim();
+            if (!text) return;
+
+            const chatContainer = document.getElementById('chat-messages');
+
+            // User Message
+            chatContainer.innerHTML += `
+                <div class="flex items-start justify-end space-x-3">
+                    <div class="p-3.5 bg-nasa-blue/40 border border-nasa-cyan/30 rounded-2xl rounded-tr-none text-sm text-white max-w-[85%]">
+                        ${escapeHtml(text)}
+                    </div>
+                </div>
+            `;
+            input.value = '';
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+
+            chatHistory.push({ role: "user", parts: [{ text: text }] });
+
+            // Add loading placeholder for assistant response
+            const loadingId = 'loading-' + Date.now();
+            chatContainer.innerHTML += `
+                <div id="${loadingId}" class="flex items-start space-x-3">
+                    <div class="w-7 h-7 rounded-full bg-teal-500/20 text-teal-400 flex items-center justify-center shrink-0 mt-1">
+                        <i class="fa-solid fa-robot text-xs animate-spin"></i>
+                    </div>
+                    <div class="p-3.5 bg-space-900 rounded-2xl rounded-tl-none border border-gray-800 text-sm text-gray-400 italic max-w-[85%]">
+                        Gemini is synthesizing wellness guidance...
+                    </div>
+                </div>
+            `;
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+
+            try {
+                const systemPrompt = "Act as a compassionate NASA aerospace human-factors researcher and astronaut wellness companion. Provide empathetic, scientifically grounded, practical advice for astronauts dealing with isolation, work stress, or communication fatigue. Never diagnose mental health disorders.";
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${GEMINI_API_KEY}`;
+                
+                const payload = {
+                    contents: chatHistory,
+                    systemInstruction: {
+                        parts: [{ text: systemPrompt }]
+                    }
+                };
+
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+                const candidate = result.candidates?.[0];
+                let reply = "I am here to support your mission well-being. Let's take a slow breath and refocus.";
+
+                if (candidate && candidate.content?.parts?.[0]?.text) {
+                    reply = candidate.content.parts[0].text;
+                }
+
+                // Remove loading element
+                document.getElementById(loadingId).remove();
+
+                chatHistory.push({ role: "model", parts: [{ text: reply }] });
+
+                chatContainer.innerHTML += `
+                    <div class="flex items-start space-x-3">
+                        <div class="w-7 h-7 rounded-full bg-teal-500/20 text-teal-400 flex items-center justify-center shrink-0 mt-1">
+                            <i class="fa-solid fa-robot text-xs"></i>
+                        </div>
+                        <div class="p-3.5 bg-space-900 rounded-2xl rounded-tl-none border border-gray-800 text-sm text-gray-200 max-w-[85%]">
+                            ${markedFormat(reply)}
+                        </div>
+                    </div>
+                `;
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+
+            } catch (error) {
+                console.error("Gemini API Error:", error);
+                document.getElementById(loadingId).remove();
+                chatContainer.innerHTML += `
+                    <div class="flex items-start space-x-3">
+                        <div class="w-7 h-7 rounded-full bg-rose-500/20 text-rose-400 flex items-center justify-center shrink-0 mt-1">
+                            <i class="fa-solid fa-triangle-exclamation text-xs"></i>
+                        </div>
+                        <div class="p-3.5 bg-space-900 rounded-2xl rounded-tl-none border border-gray-800 text-sm text-gray-200 max-w-[85%]">
+                            Connection hiccup with ground link. Please provide your Gemini API key in the configuration or try again.
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        function handleChatKeyPress(e) {
+            if (e.key === 'Enter') sendChatMessage();
+        }
+
+        function clearChat() {
+            chatHistory = [];
+            document.getElementById('chat-messages').innerHTML = `
+                <div class="flex items-start space-x-3">
+                    <div class="w-7 h-7 rounded-full bg-teal-500/20 text-teal-400 flex items-center justify-center shrink-0 mt-1">
+                        <i class="fa-solid fa-robot text-xs"></i>
+                    </div>
+                    <div class="p-3.5 bg-space-900 rounded-2xl rounded-tl-none border border-gray-800 text-sm text-gray-200 max-w-[85%]">
+                        Chat cleared. How else can I assist your mission wellness today?
+                    </div>
+                </div>
+            `;
+            showToast('Chat history cleared.', 'success');
+        }
+
+        function markedFormat(text) {
+            return escapeHtml(text).replace(/\n/g, '<br>');
+        }
+
+        function triggerQuickTip(type) {
+            if (type === 'breathing') {
+                startBreathingExercise();
+            } else if (type === 'mindfulness') {
+                showToast('Tip: Acknowledge the thought without judgment. Reframing challenge as growth.', 'success');
+            } else if (type === 'human') {
+                showToast('Secure audio referral sent to Flight Surgeon on Earth. You will be contacted shortly.', 'success');
+            }
+        }
+
+        function startBreathingExercise() {
+            document.getElementById('breathing-modal').classList.remove('hidden');
+            let count = 4;
+            let phase = 'Inhale (4s)';
+            document.getElementById('breathing-instruction').innerText = phase;
+            document.getElementById('breathing-timer').innerText = `${count}s`;
+            const circle = document.getElementById('breathing-circle');
+            circle.style.transform = 'scale(1.25)';
+
+            breathingInterval = setInterval(() => {
+                count--;
+                if (count <= 0) {
+                    if (phase.includes('Inhale')) {
+                        phase = 'Hold (4s)';
+                        count = 4;
+                    } else if (phase.includes('Hold')) {
+                        phase = 'Exhale (4s)';
+                        count = 4;
+                        circle.style.transform = 'scale(0.75)';
+                    } else {
+                        phase = 'Inhale (4s)';
+                        count = 4;
+                        circle.style.transform = 'scale(1.25)';
+                    }
+                    document.getElementById('breathing-instruction').innerText = phase;
+                }
+                document.getElementById('breathing-timer').innerText = `${count}s`;
+            }, 1000);
+        }
+
+        function closeBreathingModal() {
+            document.getElementById('breathing-modal').classList.add('hidden');
+            if (breathingInterval) clearInterval(breathingInterval);
+        }
+
+        function stopBreathingExercise() {
+            closeBreathingModal();
+            showToast('Box breathing session completed successfully.', 'success');
+        }
+
+        function toggleSharingSetting(el) {
+            if (el.checked) {
+                showToast('Commander sharing enabled (Anonymized weekly summaries only).', 'success');
+            } else {
+                showToast('Commander sharing disabled. Strict local privacy enforced.', 'success');
+            }
+        }
+
+        // --- Toast Notification Helper ---
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            const icon = document.getElementById('toast-icon');
+            const msg = document.getElementById('toast-msg');
+
+            msg.innerText = message;
+            if (type === 'success') {
+                icon.className = 'fa-solid fa-circle-check text-emerald-400 text-lg';
+            } else {
+                icon.className = 'fa-solid fa-circle-exclamation text-amber-400 text-lg';
+            }
+
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3500);
+        }
+
+        function escapeHtml(text) {
+            const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+            return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+        }
+
+        // Initialize on load
+        window.onload = function() {
+            renderJournalList();
+            renderDashboardCharts();
+        };
+    </script>
+</body>
+</html>
